@@ -10,13 +10,12 @@ namespace BasicPoke
 
 		private readonly List<Line> lines = new List<Line>();
 
-		public int ProgramLength { get => program.Count; }
+		public int Length { get => program.Count; }
 
 		public static byte CalcChecksum(List<byte> list)
 		{
 			byte result = 0;
-
-			list.ForEach(element => result = (byte)(result ^ element));
+			list.ForEach(element => result ^= element);
 
 			return result;
 		}
@@ -25,7 +24,7 @@ namespace BasicPoke
 
 		public void Compile()
 		{
-			program.Add(0xff);  // flag
+			program.Add(Flag);
 
 			foreach (var line in lines)
 			{

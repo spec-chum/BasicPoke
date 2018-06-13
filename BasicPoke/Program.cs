@@ -18,7 +18,7 @@ namespace BasicPoke
 
 		private static void CreateTap(BasicProgram program)
 		{
-			int programSize = program.ProgramLength - 2;
+			int programSize = program.Length - 2;
 
 			const string Filename = "taptest";
 			var header = new List<byte>();
@@ -39,8 +39,8 @@ namespace BasicPoke
 				tapFile.Write((byte)0);
 				tapFile.Write(header.ToArray());
 
-				tapFile.Write((byte)(program.ProgramLength & 0xff));
-				tapFile.Write((byte)((program.ProgramLength >> 8) & 0xff));
+				tapFile.Write((byte)(program.Length & 0xff));
+				tapFile.Write((byte)((program.Length >> 8) & 0xff));
 				tapFile.Write(program.program.ToArray());
 			}
 		}
@@ -89,7 +89,7 @@ namespace BasicPoke
 		{
 			if (args.Length < 2)
 			{
-				Console.WriteLine("Usage: BasicPoke address inputfile.bin [clear:address | loadcode:[address] | usr:[address]");
+				Console.WriteLine("Usage: BasicPoke inputfile.bin address [clear:address | loadcode:[address] | [usr:address]");
 				return;
 			}
 
