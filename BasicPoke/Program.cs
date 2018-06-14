@@ -47,25 +47,25 @@ namespace BasicPoke
 
 		private static int GenerateDataStatements(byte[] pokeCode, BasicProgram program, int lineNumber)
 		{
-			Line line;
-			int lineIndex = 0;
-			const int lineLength = 5;
-			line = new Line(lineNumber);
+			const int LineLength = 5;
 
-			for (int i = 0; i < pokeCode.Length; i++)
+			var line = new Line(lineNumber);
+			int lineIndex = 0;
+
+			foreach (var data in pokeCode)
 			{
 				if (lineIndex == 0)
 				{
 					line.AddToken(Token.DATA);
-					line.AddNumber(pokeCode[i]);
+					line.AddNumber(data);
 					lineIndex++;
 				}
 				else
 				{
 					line.AddText(",");
-					line.AddNumber(pokeCode[i]);
+					line.AddNumber(data);
 
-					if (++lineIndex == lineLength)
+					if (++lineIndex == LineLength)
 					{
 						line.EndLine();
 						program.AddLine(line);
@@ -75,6 +75,7 @@ namespace BasicPoke
 					}
 				}
 			}
+
 			if (lineIndex > 0)
 			{
 				line.EndLine();
