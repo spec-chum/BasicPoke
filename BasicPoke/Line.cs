@@ -116,6 +116,11 @@ namespace BasicPoke
 
 		public int LineNumber { get; set; }
 
+		public void AddCode(byte code)
+		{
+			line.Add(code);
+		}
+
 		public void AddNumber(int number)
 		{
 			line.AddRange(Encoding.ASCII.GetBytes(number.ToString()));

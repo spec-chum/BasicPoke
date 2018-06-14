@@ -14,6 +14,7 @@ namespace BasicPoke
 		private static string inputFile;
 		private static bool loadCode;
 		private static int startAddress;
+		private static bool rem;
 		private static int usrAddress;
 
 		private static void CreateTap(BasicProgram program)
@@ -103,19 +104,46 @@ namespace BasicPoke
 
 			var pokeCode = File.ReadAllBytes(inputFile);
 			var program = new BasicProgram();
-			int lineNumber = GenerateBoilerPlate(pokeCode, program);
 
-			GenerateDataStatements(pokeCode, program, lineNumber);
-
+			GenerateBasic(pokeCode, program);
 			program.Compile();
-
 			CreateTap(program);
 		}
 
-		private static int GenerateBoilerPlate(byte[] pokeCode, BasicProgram program)
+		private static int GenerateBasic(byte[] pokeCode, BasicProgram program)
 		{
 			int lineNumber = 10;
 			var line = new Line(lineNumber);
+
+			if (rem)
+			{
+				var ldirCode = new byte[]
+				{
+					33, 23774 & 0xff, 23774 >> 8 & 0xff,
+					17, (byte)(startAddress & 0xff), (byte)(startAddress >> 8 & 0xff),
+					1, (byte)(pokeCode.Length & 0xff), (byte)(pokeCode.Length >> 8 & 0xff),
+					237, 176, 195, (byte)(startAddress & 0xff), (byte)(startAddress >> 8 & 0xff)
+
+				};
+
+				line.AddToken(Token.REM);
+
+				foreach (var code in ldirCode)
+				{
+					line.AddCode(code);
+				}
+
+				foreach (var code in pokeCode)
+				{
+					line.AddCode(code);
+				}
+
+				line.EndLine();
+				program.AddLine(line);
+
+				startAddress = 23760;
+				lineNumber += 10;
+			}
 
 			if (clear)
 			{
@@ -128,26 +156,29 @@ namespace BasicPoke
 				lineNumber += 10;
 			}
 
-			// FOR F=xxxx TO yyyy
-			line = new Line(lineNumber);
-			line.GenerateFor("F", startAddress, pokeCode.Length);
-			line.EndLine();
-			program.AddLine(line);
+			if (!rem)
+			{
+				// FOR F=xxxx TO yyyy
+				line = new Line(lineNumber);
+				line.GenerateFor("F", startAddress, pokeCode.Length);
+				line.EndLine();
+				program.AddLine(line);
 
-			lineNumber += 10;
+				lineNumber += 10;
 
-			// READ A: POKE F, A: NEXT F
-			line = new Line(lineNumber);
-			line.AddToken(Token.READ);
-			line.AddText("A:");
-			line.AddToken(Token.POKE);
-			line.AddText("F,A:");
-			line.AddToken(Token.NEXT);
-			line.AddText("F");
-			line.EndLine();
-			program.AddLine(line);
+				// READ A: POKE F, A: NEXT F
+				line = new Line(lineNumber);
+				line.AddToken(Token.READ);
+				line.AddText("A:");
+				line.AddToken(Token.POKE);
+				line.AddText("F,A:");
+				line.AddToken(Token.NEXT);
+				line.AddText("F");
+				line.EndLine();
+				program.AddLine(line);
 
-			lineNumber += 10;
+				lineNumber += 10;
+			}
 
 			// LOAD ""CODE xxxx
 			if (loadCode)
@@ -177,6 +208,11 @@ namespace BasicPoke
 			program.AddLine(line);
 
 			lineNumber += 10;
+
+			if (!rem)
+			{
+				GenerateDataStatements(pokeCode, program, lineNumber);
+			}
 
 			return lineNumber;
 		}
@@ -214,6 +250,10 @@ namespace BasicPoke
 
 					case "usr":
 						usrAddress = Int32.Parse(value);
+						break;
+
+					case "rem":
+						rem = true;
 						break;
 				}
 			}
