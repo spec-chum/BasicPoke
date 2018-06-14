@@ -210,11 +210,7 @@ namespace BasicPoke
 
 					case "loadcode":
 						loadCode = true;
-
-						if (!Int32.TryParse(value, out codeAddress))
-						{
-							codeAddress = 0;
-						}
+						Int32.TryParse(value, out codeAddress);
 						break;
 
 					case "usr":

@@ -15,7 +15,11 @@ namespace BasicPoke
 		public static byte CalcChecksum(List<byte> list)
 		{
 			byte result = 0;
-			list.ForEach(element => result ^= element);
+
+			foreach (var element in list)
+			{
+				result ^= element;
+			}
 
 			return result;
 		}
