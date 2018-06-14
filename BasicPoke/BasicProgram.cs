@@ -34,8 +34,8 @@ namespace BasicPoke
 			{
 				program.Add((byte)(line.LineNumber >> 8 & 0xff));
 				program.Add((byte)(line.LineNumber & 0xff));
-				program.Add((byte)(line.LineLength & 0xff));
-				program.Add((byte)(line.LineLength >> 8 & 0xff));
+				program.Add((byte)(line.Length & 0xff));
+				program.Add((byte)(line.Length >> 8 & 0xff));
 				program.AddRange(line.line);
 			}
 

@@ -112,7 +112,7 @@ namespace BasicPoke
 			COPY = 255
 		}
 
-		public int LineLength { get => line.Count; }
+		public int Length { get => line.Count; }
 
 		public int LineNumber { get; set; }
 

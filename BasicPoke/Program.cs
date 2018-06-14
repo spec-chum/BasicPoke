@@ -56,7 +56,6 @@ namespace BasicPoke
 			{
 				if (lineIndex == 0)
 				{
-					line.LineNumber = lineNumber;
 					line.AddToken(Token.DATA);
 					line.AddNumber(pokeCode[i]);
 					lineIndex++;
@@ -170,7 +169,6 @@ namespace BasicPoke
 
 			// RANDOMIZE USR xxxx
 			line = new Line(lineNumber);
-			line.LineNumber = lineNumber;
 			line.AddToken(Token.RANDOMIZE);
 			line.AddToken(Token.USR);
 			line.AddNumber(usrAddress == 0 ? startAddress : usrAddress);
