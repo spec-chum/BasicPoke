@@ -90,7 +90,7 @@ namespace BasicPoke
 		{
 			if (args.Length < 2)
 			{
-				Console.WriteLine("Usage: BasicPoke inputfile.bin address [clear:address | loadcode:[address] | [usr:address]");
+				Console.WriteLine("Usage: BasicPoke inputfile.bin address [--clear:address | --loadcode:[address] | [--usr:address]");
 				return;
 			}
 
@@ -112,7 +112,7 @@ namespace BasicPoke
 
 		private static int GenerateBasic(byte[] pokeCode, BasicProgram program)
 		{
-			int lineNumber = 10;
+			int lineNumber = 0;
 			var line = new Line(lineNumber);
 
 			if (rem)
@@ -144,6 +144,8 @@ namespace BasicPoke
 				startAddress = 23760;
 				lineNumber += 10;
 			}
+
+			lineNumber += 10;
 
 			if (clear)
 			{
