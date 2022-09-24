@@ -1,6 +1,6 @@
 ﻿namespace BasicPoke;
 
-public static class ExtentionMethods
+public static class ExtensionMethods
 {
 	public static byte[] GetAsciiBytes(this string str)
 	{
