@@ -1,257 +1,257 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using static BasicPoke.Line;
+using static BasicPoke.BasicLine;
 
-namespace BasicPoke
+namespace BasicPoke;
+
+public static class Program
 {
-	public static class Program
+	private static bool clear;
+	private static bool loadCode;
+	private static bool rem;
+	private static int clearAddress;
+	private static int codeAddress;
+	private static int startAddress;
+	private static int usrAddress;
+	private static string? inputFile;
+
+	private static void Main(string[] args)
 	{
-		private static bool clear;
-		private static int clearAddress;
-		private static int codeAddress;
-		private static string inputFile;
-		private static bool loadCode;
-		private static int startAddress;
-		private static bool rem;
-		private static int usrAddress;
-
-		private static void CreateTap(BasicProgram program)
+		if (args.Length < 2)
 		{
-			int programSize = program.Length - 2;
+			Console.WriteLine("Usage: BasicPoke input.bin address [--clear:address] [--loadcode[:address]] [--usr:address] [--rem]");
+			return;
+		}
 
-			const string Filename = "taptest";
-			var header = new List<byte>();
-			header.Add(0);                                  // flag
-			header.Add(0);                                  // type
-			header.AddRange(Encoding.ASCII.GetBytes(Filename.PadRight(10)));
-			header.Add((byte)(programSize & 0xff));         // data size
-			header.Add((byte)((programSize >> 8) & 0xff));  // data size
-			header.Add(10);                                 // autostart number
-			header.Add(0);                                  // autostart number
-			header.Add((byte)(programSize & 0xff));         // variables
-			header.Add((byte)((programSize >> 8) & 0xff));  // variables
-			header.Add(BasicProgram.CalcChecksum(header));
+		ProcessArgs(args);
 
-			using (var tapFile = new BinaryWriter(File.Open("poke.tap", FileMode.Create)))
+		var pokeCode = File.ReadAllBytes(inputFile!);
+		var program = new BasicProgram();
+
+		GenerateBasic(pokeCode, program);
+		program.Compile();
+		CreateTap(program);
+	}
+
+	public static byte CalcChecksum(IEnumerable<byte> list)
+	{
+		byte result = 0;
+
+		foreach (var element in list)
+		{
+			result ^= element;
+		}
+
+		return result;
+	}
+
+	private static void CreateTap(BasicProgram program)
+	{
+		const string Filename = "poke";
+
+		int programSize = program.Length - 2;
+
+		List<byte> header = new(17);
+		header.Add(0);							// type
+		header.AddRange(Filename.PadRight(10).GetAsciiBytes());
+		header.Add(programSize.GetLowByte());	// data size
+		header.Add(programSize.GetHighByte());  // data size
+		header.Add(10);                         // autostart number
+		header.Add(0);                          // autostart number
+		header.Add(programSize.GetLowByte());	// variables
+		header.Add(programSize.GetHighByte());	// variables
+
+		using var tapFile = new BinaryWriter(File.Open("poke.tap", FileMode.Create));
+		tapFile.Write((byte)19);				// sizeof header + flag + checksum
+		tapFile.Write((byte)0);
+		tapFile.Write((byte)0);					// flag 0 = header
+		tapFile.Write(header.ToArray());
+		tapFile.Write(CalcChecksum(header));
+		tapFile.Write(program.Length.GetLowByte());
+		tapFile.Write(program.Length.GetHighByte());
+		tapFile.Write(program.Basic.ToArray());
+	}
+
+	private static int GenerateDataStatements(IEnumerable<byte> pokeCode, BasicProgram program, int lineNumber)
+	{
+		const int LineLength = 5;
+
+		var line = new BasicLine(lineNumber);
+		int lineIndex = 0;
+
+		foreach (var data in pokeCode)
+		{
+			if (lineIndex == 0)
 			{
-				tapFile.Write((byte)19);
-				tapFile.Write((byte)0);
-				tapFile.Write(header.ToArray());
+				line.AddToken(Token.DATA);
+				line.AddNumber(data);
+				lineIndex++;
+			}
+			else
+			{
+				line.AddText(",");
+				line.AddNumber(data);
 
-				tapFile.Write((byte)(program.Length & 0xff));
-				tapFile.Write((byte)((program.Length >> 8) & 0xff));
-				tapFile.Write(program.program.ToArray());
+				if (++lineIndex == LineLength)
+				{
+					line.EndLine();
+					program.AddLine(line);
+					lineNumber += 10;
+					lineIndex = 0;
+					line = new BasicLine(lineNumber);
+				}
 			}
 		}
 
-		private static int GenerateDataStatements(byte[] pokeCode, BasicProgram program, int lineNumber)
+		if (lineIndex > 0)
 		{
-			const int LineLength = 5;
-
-			var line = new Line(lineNumber);
-			int lineIndex = 0;
-
-			foreach (var data in pokeCode)
-			{
-				if (lineIndex == 0)
-				{
-					line.AddToken(Token.DATA);
-					line.AddNumber(data);
-					lineIndex++;
-				}
-				else
-				{
-					line.AddText(",");
-					line.AddNumber(data);
-
-					if (++lineIndex == LineLength)
-					{
-						line.EndLine();
-						program.AddLine(line);
-						lineNumber += 10;
-						lineIndex = 0;
-						line = new Line(lineNumber);
-					}
-				}
-			}
-
-			if (lineIndex > 0)
-			{
-				line.EndLine();
-				program.AddLine(line);
-			}
-
-			return lineNumber;
+			line.EndLine();
+			program.AddLine(line);
 		}
 
-		private static void Main(string[] args)
+		return lineNumber;
+	}
+
+	private static void GenerateBasic(byte[] pokeCode, BasicProgram program)
+	{
+		int lineNumber = 0;
+		var line = new BasicLine(lineNumber);
+
+		if (rem)
 		{
-			if (args.Length < 2)
+			var ldirCode = new byte[]
 			{
-				Console.WriteLine("Usage: BasicPoke inputfile.bin address [--clear:address | --loadcode:[address] | [--usr:address]");
-				return;
-			}
+				33, 222, 92,													// ld hl, 23774
+				17, startAddress.GetLowByte(), startAddress.GetHighByte(),		// ld de, startAddress
+				1, pokeCode.Length.GetLowByte(), pokeCode.Length.GetHighByte(),	// ld bc, pokeCode.Length
+				237, 176,														// ldir
+				195, startAddress.GetLowByte(), startAddress.GetHighByte()		// jp startAddress
+			};
 
-			foreach (var arg in args)
-			{
-				if (!ProcessArg(arg))
-				{
-					return;
-				}
-			}
+			line.AddToken(Token.REM);
 
-			var pokeCode = File.ReadAllBytes(inputFile);
-			var program = new BasicProgram();
+			line.AddCode(ldirCode);
+			line.AddCode(pokeCode);
 
-			GenerateBasic(pokeCode, program);
-			program.Compile();
-			CreateTap(program);
+			line.EndLine();
+			program.AddLine(line);
+
+			startAddress = 23760;
 		}
 
-		private static int GenerateBasic(byte[] pokeCode, BasicProgram program)
+		lineNumber += 10;
+
+		if (clear)
 		{
-			int lineNumber = 0;
-			var line = new Line(lineNumber);
-
-			if (rem)
-			{
-				var ldirCode = new byte[]
-				{
-					33, 23774 & 0xff, 23774 >> 8 & 0xff,
-					17, (byte)(startAddress & 0xff), (byte)(startAddress >> 8 & 0xff),
-					1, (byte)(pokeCode.Length & 0xff), (byte)(pokeCode.Length >> 8 & 0xff),
-					237, 176, 195, (byte)(startAddress & 0xff), (byte)(startAddress >> 8 & 0xff)
-
-				};
-
-				line.AddToken(Token.REM);
-
-				foreach (var code in ldirCode)
-				{
-					line.AddCode(code);
-				}
-
-				foreach (var code in pokeCode)
-				{
-					line.AddCode(code);
-				}
-
-				line.EndLine();
-				program.AddLine(line);
-
-				startAddress = 23760;
-				lineNumber += 10;
-			}
+			line = new BasicLine(lineNumber);
+			line.AddToken(Token.CLEAR);
+			line.AddNumber(clearAddress);
+			line.EndLine();
+			program.AddLine(line);
 
 			lineNumber += 10;
+		}
 
-			if (clear)
-			{
-				line = new Line(lineNumber);
-				line.AddToken(Token.CLEAR);
-				line.AddNumber(clearAddress);
-				line.EndLine();
-				program.AddLine(line);
-
-				lineNumber += 10;
-			}
-
-			if (!rem)
-			{
-				// FOR F=xxxx TO yyyy
-				line = new Line(lineNumber);
-				line.GenerateFor("F", startAddress, pokeCode.Length);
-				line.EndLine();
-				program.AddLine(line);
-
-				lineNumber += 10;
-
-				// READ A: POKE F, A: NEXT F
-				line = new Line(lineNumber);
-				line.AddToken(Token.READ);
-				line.AddText("A:");
-				line.AddToken(Token.POKE);
-				line.AddText("F,A:");
-				line.AddToken(Token.NEXT);
-				line.AddText("F");
-				line.EndLine();
-				program.AddLine(line);
-
-				lineNumber += 10;
-			}
-
-			// LOAD ""CODE xxxx
-			if (loadCode)
-			{
-				line = new Line(lineNumber);
-				line.AddToken(Token.LOAD);
-				line.AddText("", true);
-				line.AddToken(Token.CODE);
-
-				if (codeAddress > 0)
-				{
-					line.AddNumber(codeAddress);
-				}
-
-				line.EndLine();
-				program.AddLine(line);
-
-				lineNumber += 10;
-			}
-
-			// RANDOMIZE USR xxxx
-			line = new Line(lineNumber);
-			line.AddToken(Token.RANDOMIZE);
-			line.AddToken(Token.USR);
-			line.AddNumber(usrAddress == 0 ? startAddress : usrAddress);
+		if (!rem)
+		{
+			// FOR F=xxxx TO yyyy
+			line = new BasicLine(lineNumber);
+			line.GenerateFor("F", startAddress, pokeCode.Length);
 			line.EndLine();
 			program.AddLine(line);
 
 			lineNumber += 10;
 
-			if (!rem)
-			{
-				GenerateDataStatements(pokeCode, program, lineNumber);
-			}
+			// READ A: POKE F, A: NEXT F
+			line = new BasicLine(lineNumber);
+			line.AddToken(Token.READ);
+			line.AddText("A:");
+			line.AddToken(Token.POKE);
+			line.AddText("F,A:");
+			line.AddToken(Token.NEXT);
+			line.AddText("F");
+			line.EndLine();
+			program.AddLine(line);
 
-			return lineNumber;
+			lineNumber += 10;
 		}
 
-		private static bool ProcessArg(string arg)
+		// LOAD ""CODE xxxx
+		if (loadCode)
 		{
-			if (arg == null)
+			line = new BasicLine(lineNumber);
+			line.AddToken(Token.LOAD);
+			line.AddText("", true);
+			line.AddToken(Token.CODE);
+
+			if (codeAddress > 0)
 			{
-				return false;
+				line.AddNumber(codeAddress);
 			}
+
+			line.EndLine();
+			program.AddLine(line);
+
+			lineNumber += 10;
+		}
+
+		// RANDOMIZE USR xxxx
+		line = new BasicLine(lineNumber);
+		line.AddToken(Token.RANDOMIZE);
+		line.AddToken(Token.USR);
+		line.AddNumber(usrAddress == 0 ? startAddress : usrAddress);
+		line.EndLine();
+		program.AddLine(line);
+
+		lineNumber += 10;
+
+		if (!rem)
+		{
+			GenerateDataStatements(pokeCode, program, lineNumber);
+		}
+	}
+
+	private static void ProcessArgs(string[] args)
+	{
+		inputFile = args[0];
+		startAddress = int.Parse(args[1]);
+
+		if (args.Length < 3)
+		{
+			return;
+		}
+
+		for (int i = 2; i < args.Length; i++)
+		{
+			ReadOnlySpan<char> arg = args[i];
+			Console.WriteLine($"Processing arg[{i}]: {args[i]}");
 
 			if (arg.StartsWith("--"))
 			{
-				string argName = arg.Substring(2);
-				string value = null;
+				ReadOnlySpan<char> argName = arg[2..];
+				ReadOnlySpan<char> value = default;
 
 				int valuePos = argName.IndexOf(":");
 				if (valuePos > 0)
 				{
-					value = argName.Substring(valuePos + 1);
-					argName = argName.Substring(0, valuePos);
+					value = argName[(valuePos + 1)..];
+					argName = argName[..valuePos];
 				}
 
-				switch (argName)
+				// TODO: ToString() not needed in C# 11
+				switch (argName.ToString())
 				{
 					case "clear":
 						clear = true;
-						clearAddress = Int32.Parse(value);
+						clearAddress = int.Parse(value);
 						break;
 
 					case "loadcode":
 						loadCode = true;
-						Int32.TryParse(value, out codeAddress);
+						// Value is optional, so might be null
+						codeAddress = value == null ? 0 : int.Parse(value);
 						break;
 
 					case "usr":
-						usrAddress = Int32.Parse(value);
+						usrAddress = int.Parse(value);
 						break;
 
 					case "rem":
@@ -259,19 +259,6 @@ namespace BasicPoke
 						break;
 				}
 			}
-			else
-			{
-				if (inputFile == null)
-				{
-					inputFile = arg;
-				}
-				else if (startAddress == 0)
-				{
-					startAddress = Int32.Parse(arg);
-				}
-			}
-
-			return true;
 		}
 	}
 }

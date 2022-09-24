@@ -1,45 +1,29 @@
-using System.Collections.Generic;
+namespace BasicPoke;
 
-namespace BasicPoke
+public class BasicProgram
 {
-	public class BasicProgram
+	private const byte Flag = 0xff;
+	private readonly List<BasicLine> lines = new();
+
+	public List<byte> Basic { get; } = new();
+
+	public int Length => Basic.Count;
+
+	public void AddLine(BasicLine line) => lines.Add(line);
+
+	public void Compile()
 	{
-		public const byte Flag = 0xff;
+		Basic.Add(Flag);
 
-		public List<byte> program = new List<byte>();
-
-		private readonly List<Line> lines = new List<Line>();
-
-		public int Length { get => program.Count; }
-
-		public static byte CalcChecksum(List<byte> list)
+		foreach (var line in lines)
 		{
-			byte result = 0;
-
-			foreach (var element in list)
-			{
-				result ^= element;
-			}
-
-			return result;
+			Basic.Add(line.LineNumber.GetHighByte());
+			Basic.Add(line.LineNumber.GetLowByte());
+			Basic.Add(line.Length.GetLowByte());
+			Basic.Add(line.Length.GetHighByte());
+			Basic.AddRange(line.Line);
 		}
 
-		public void AddLine(Line line) => lines.Add(line);
-
-		public void Compile()
-		{
-			program.Add(Flag);
-
-			foreach (var line in lines)
-			{
-				program.Add((byte)(line.LineNumber >> 8 & 0xff));
-				program.Add((byte)(line.LineNumber & 0xff));
-				program.Add((byte)(line.Length & 0xff));
-				program.Add((byte)(line.Length >> 8 & 0xff));
-				program.AddRange(line.line);
-			}
-
-			program.Add(CalcChecksum(program));
-		}
+		Basic.Add(Program.CalcChecksum(Basic));
 	}
 }
