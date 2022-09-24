@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "BasicPoke": {
-      "commandName": "Project",
-      "commandLineArgs": "vatman.bin 32768 --clear:32767"
-    }
-  }
-}
